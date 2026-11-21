@@ -59,7 +59,8 @@ const oxc: Engine = {
   name: "oxc",
   run: async (input) => {
     const result = oxcMinify(input.filename, input.code, oxcOptions(input));
-    if (result.errors.length > 0) throw new Error(`oxc: ${result.errors.map((e) => e.message).join("; ")}`);
+    if (result.errors.length > 0)
+      throw new Error(`oxc: ${result.errors.map((e) => e.message).join("; ")}`);
     return result.code;
   },
 };
@@ -82,7 +83,8 @@ const bun: Engine = {
       target: "browser",
     });
     const [output] = result.outputs;
-    if (!result.success || output === undefined) throw new Error(`bun: ${result.logs.map(String).join("; ")}`);
+    if (!result.success || output === undefined)
+      throw new Error(`bun: ${result.logs.map(String).join("; ")}`);
     return (await output.text()).trimEnd();
   },
 };
@@ -120,6 +122,13 @@ export const ENGINES: Record<EngineName, Engine> = { oxc, bun, swc, terser };
 
 // Which pinned version of each engine is running, for cache keys and reports.
 export const engineVersions = async (): Promise<Record<EngineName, string>> => {
-  const read = async (pkg: string) => (await import(`${pkg}/package.json`, { with: { type: "json" } })).default.version as string;
-  return { oxc: await read("oxc-minify"), bun: Bun.version, swc: await read("@swc/core"), terser: await read("terser") };
+  const read = async (pkg: string) =>
+    (await import(`${pkg}/package.json`, { with: { type: "json" } })).default
+      .version as string;
+  return {
+    oxc: await read("oxc-minify"),
+    bun: Bun.version,
+    swc: await read("@swc/core"),
+    terser: await read("terser"),
+  };
 };

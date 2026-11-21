@@ -19,16 +19,30 @@ export type { EngineName, SourceKind } from "./engines.ts";
 // by 274, because oxc's mangler packs names tighter than the others.
 export type Pipeline = readonly EngineName[];
 
-export const DEFAULT_PIPELINES: readonly Pipeline[] = [["oxc"], ["bun"], ["swc"], ["terser"], ["oxc", "terser"], ["swc", "oxc"]];
+export const DEFAULT_PIPELINES: readonly Pipeline[] = [
+  ["oxc"],
+  ["bun"],
+  ["swc"],
+  ["terser"],
+  ["oxc", "terser"],
+  ["swc", "oxc"],
+];
 
 export type Candidate = {
   pipeline: string;
   code: string | null;
   brotli: number | null;
-  verdict: Verdict | { kind: "engine-failed"; reason: string } | { kind: "not-checked" };
+  verdict:
+    | Verdict
+    | { kind: "engine-failed"; reason: string }
+    | { kind: "not-checked" };
 };
 
-export type Result = { code: string; pipeline: string; candidates: Candidate[] };
+export type Result = {
+  code: string;
+  pipeline: string;
+  candidates: Candidate[];
+};
 
 export type Options = {
   filename: string;
@@ -43,21 +57,40 @@ export type Options = {
 };
 
 export const brotliBytes = (code: string): number =>
-  brotliCompressSync(Buffer.from(code), { params: { [zlib.BROTLI_PARAM_QUALITY]: 11, [zlib.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(code) } }).length;
+  brotliCompressSync(Buffer.from(code), {
+    params: {
+      [zlib.BROTLI_PARAM_QUALITY]: 11,
+      [zlib.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(code),
+    },
+  }).length;
 
-const runPipeline = async (pipeline: Pipeline, base: EngineInput): Promise<string> => {
+const runPipeline = async (
+  pipeline: Pipeline,
+  base: EngineInput,
+): Promise<string> => {
   let code = base.code;
-  for (const name of pipeline) code = await ENGINES[name].run({ ...base, code });
+  for (const name of pipeline)
+    code = await ENGINES[name].run({ ...base, code });
   return code;
 };
 
-export const minify = async (source: string, options: Options): Promise<Result> => {
+export const minify = async (
+  source: string,
+  options: Options,
+): Promise<Result> => {
   const pipelines = options.pipelines ?? DEFAULT_PIPELINES;
   // An engine has to parse the file the way a browser will, so static
   // import/export makes it a module for parsing even when the caller says
   // script; `toplevel` still follows the caller.
-  const kind: SourceKind = options.kind === "module" || !parsesAsScript(source) ? "module" : "script";
-  const base: EngineInput = { filename: options.filename, code: source, kind, declared: options.kind, toplevel: options.toplevel ?? options.kind === "module" };
+  const kind: SourceKind =
+    options.kind === "module" || !parsesAsScript(source) ? "module" : "script";
+  const base: EngineInput = {
+    filename: options.filename,
+    code: source,
+    kind,
+    declared: options.kind,
+    toplevel: options.toplevel ?? options.kind === "module",
+  };
   const candidates: Candidate[] = [];
   for (const pipeline of pipelines) {
     const name = pipeline.join(">");
@@ -65,30 +98,58 @@ export const minify = async (source: string, options: Options): Promise<Result> 
     try {
       code = await runPipeline(pipeline, base);
     } catch (e) {
-      candidates.push({ pipeline: name, code: null, brotli: null, verdict: { kind: "engine-failed", reason: String(e).slice(0, 300) } });
+      candidates.push({
+        pipeline: name,
+        code: null,
+        brotli: null,
+        verdict: { kind: "engine-failed", reason: String(e).slice(0, 300) },
+      });
       continue;
     }
     const lost = (options.markers ?? []).find((m) => !code.includes(m));
     if (lost !== undefined) {
-      candidates.push({ pipeline: name, code, brotli: brotliBytes(code), verdict: { kind: "engine-failed", reason: `lost marker ${lost}` } });
+      candidates.push({
+        pipeline: name,
+        code,
+        brotli: brotliBytes(code),
+        verdict: { kind: "engine-failed", reason: `lost marker ${lost}` },
+      });
       continue;
     }
-    candidates.push({ pipeline: name, code, brotli: brotliBytes(code), verdict: { kind: "not-checked" } });
+    candidates.push({
+      pipeline: name,
+      code,
+      brotli: brotliBytes(code),
+      verdict: { kind: "not-checked" },
+    });
   }
 
   // Check candidates smallest first and stop at the first that passes, since
   // the oracle is the slow part. oxc is always checked, because it is the
   // fallback and a failing oxc means the oracle (or the source) needs a look.
-  const order = candidates.filter((c) => c.code !== null && c.verdict.kind === "not-checked").sort((a, b) => a.brotli! - b.brotli! || Number(b.pipeline === "oxc") - Number(a.pipeline === "oxc"));
+  const order = candidates
+    .filter((c) => c.code !== null && c.verdict.kind === "not-checked")
+    .sort(
+      (a, b) =>
+        a.brotli! - b.brotli! ||
+        Number(b.pipeline === "oxc") - Number(a.pipeline === "oxc"),
+    );
   let chosen: Candidate | undefined;
   for (const candidate of order) {
     if (chosen !== undefined && candidate.pipeline !== "oxc") continue;
-    candidate.verdict = await compare({ code: source, kind }, { code: candidate.code!, kind });
-    if (chosen === undefined && candidate.verdict.kind === "same") chosen = candidate;
+    candidate.verdict = await compare(
+      { code: source, kind },
+      { code: candidate.code!, kind },
+    );
+    if (chosen === undefined && candidate.verdict.kind === "same")
+      chosen = candidate;
   }
   const oxc = candidates.find((c) => c.pipeline === "oxc");
   if (chosen === undefined) {
-    if (oxc?.code == null) throw new Error(`${options.filename}: no candidate passed and oxc failed: ${JSON.stringify(oxc?.verdict)}`);
+    if (oxc?.code == null)
+      throw new Error(
+        `${options.filename}: no candidate passed and oxc failed: ${JSON.stringify(oxc?.verdict)}`,
+      );
     chosen = oxc;
   }
   return { code: chosen.code!, pipeline: chosen.pipeline, candidates };

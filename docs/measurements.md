@@ -5,9 +5,9 @@ All on aadhar.sh's 27 client scripts at site commit 96a4a119 (2026-11-21), input
 
 ## Bytes
 
-| | brotli |
-|---|--:|
-| oxc alone (what the site shipped) | 131,404 |
+|                                                       |                   brotli |
+| ----------------------------------------------------- | -----------------------: |
+| oxc alone (what the site shipped)                     |                  131,404 |
 | spokeshave, smallest candidate that passes the oracle | 129,364 (-2,040, -1.55%) |
 
 Winning pipeline by file: swc>oxc 12, oxc>terser 9, swc 4, bun 1, oxc 1.
