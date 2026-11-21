@@ -1,0 +1,27 @@
+{
+  "name": "spokeshave",
+  "version": "0.0.0",
+  "description": "Minify each JS file with oxc, Bun, SWC and terser, keep the smallest brotli output that behaves the same as the source.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": { "bun": ">=1.4.4" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./bun": "./src/bun-plugin.ts",
+    "./oracle": "./src/oracle.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test": "bun test conformance",
+    "check": "bun check && bun lint && bun fmt --check && bun test conformance"
+  },
+  "dependencies": {
+    "@swc/core": "1.16.22",
+    "oxc-minify": "0.159.0",
+    "terser": "5.51.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.4"
+  }
+}

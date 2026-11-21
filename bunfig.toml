@@ -1,0 +1,5 @@
+[install]
+exact = true
+linker = "isolated"
+# Refuse any version younger than a day, so a compromised release has time to be pulled.
+minimumReleaseAge = 86400
