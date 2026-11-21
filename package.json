@@ -19,7 +19,7 @@
     "check": "bun check && bun lint && bun fmt --check && bun test conformance"
   },
   "dependencies": {
-    "@swc/core": "1.16.22",
+    "@swc/wasm": "1.16.22",
     "oxc-minify": "0.159.0",
     "terser": "5.51.2"
   },

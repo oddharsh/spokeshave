@@ -5,7 +5,13 @@
 // the day a pin moves: the portfolio re-runs every engine on every file and
 // keeps whichever output is smallest and still passes the oracle, so nothing
 // here has to know what changed upstream.
-import { minify as swcMinify } from "@swc/core";
+//
+// SWC runs as @swc/wasm rather than the native @swc/core. On 2026-11-21 the
+// native binding failed to load in Cloudflare Workers Builds (Linux x64, Bun
+// 1.4.6 canary) while it loaded on GitHub's Ubuntu runner; the WebAssembly
+// build has no platform package to resolve. Its output was byte-identical to
+// @swc/core 1.16.22 on all 27 aadhar.sh scripts, at 180 ms against 77 ms.
+import { minify as swcMinify } from "@swc/wasm";
 import { minifySync as oxcMinify } from "oxc-minify";
 import type { MinifyOptions as OxcOptions } from "oxc-minify";
 import { minify as terserMinify } from "terser";
@@ -128,7 +134,7 @@ export const engineVersions = async (): Promise<Record<EngineName, string>> => {
   return {
     oxc: await read("oxc-minify"),
     bun: Bun.version,
-    swc: await read("@swc/core"),
+    swc: await read("@swc/wasm"),
     terser: await read("terser"),
   };
 };

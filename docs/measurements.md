@@ -1,7 +1,7 @@
 # Measurements
 
 All on aadhar.sh's 27 client scripts at site commit 96a4a119 (2026-11-21), inputs = the build's
-`.src.js` twins, brotli q11, Bun 1.4.4, oxc-minify 0.159.0, @swc/core 1.16.22, terser 5.51.2.
+`.src.js` twins, brotli q11, Bun 1.4.4, oxc-minify 0.159.0, @swc/wasm 1.16.22 (byte-identical to @swc/core 1.16.22 on this corpus), terser 5.51.2.
 
 ## Bytes
 
