@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spokeshave } from "../src/bun-plugin.ts";
-import { ENGINES, minify } from "../src/index.ts";
+import { ENGINES, minify, runPipeline } from "../src/index.ts";
+import type { Pipeline } from "../src/index.ts";
 import { compare } from "../src/oracle.ts";
 
 // A guard-then-wire island, the shape aadhar.sh's nav.js has.
@@ -127,4 +128,12 @@ test("the Bun plugin refuses minify: true", async () => {
     message = String(e);
   }
   expect(message).toContain("set minify: false");
+});
+
+test("runPipeline replays a pick byte for byte", async () => {
+  const options = { filename: "island.js", kind: "script" as const };
+  const result = await minify(island, options);
+  expect(
+    await runPipeline(result.pipeline.split(">") as Pipeline, island, options),
+  ).toBe(result.code);
 });

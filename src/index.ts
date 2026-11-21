@@ -64,7 +64,22 @@ export const brotliBytes = (code: string): number =>
     },
   }).length;
 
-const runPipeline = async (
+// An engine has to parse the file the way a browser will, so static
+// import/export makes it a module for parsing even when the caller says
+// script; `toplevel` still follows the caller.
+const engineInput = (
+  source: string,
+  options: Pick<Options, "filename" | "kind" | "toplevel">,
+): EngineInput => ({
+  filename: options.filename,
+  code: source,
+  kind:
+    options.kind === "module" || !parsesAsScript(source) ? "module" : "script",
+  declared: options.kind,
+  toplevel: options.toplevel ?? options.kind === "module",
+});
+
+const runEngines = async (
   pipeline: Pipeline,
   base: EngineInput,
 ): Promise<string> => {
@@ -74,29 +89,28 @@ const runPipeline = async (
   return code;
 };
 
+// Run one named pipeline with no oracle, for a caller that already chose it
+// (and checked it) and wants the same bytes again: a build replaying a pick it
+// committed, say.
+export const runPipeline = (
+  pipeline: Pipeline,
+  source: string,
+  options: Pick<Options, "filename" | "kind" | "toplevel">,
+): Promise<string> => runEngines(pipeline, engineInput(source, options));
+
 export const minify = async (
   source: string,
   options: Options,
 ): Promise<Result> => {
   const pipelines = options.pipelines ?? DEFAULT_PIPELINES;
-  // An engine has to parse the file the way a browser will, so static
-  // import/export makes it a module for parsing even when the caller says
-  // script; `toplevel` still follows the caller.
-  const kind: SourceKind =
-    options.kind === "module" || !parsesAsScript(source) ? "module" : "script";
-  const base: EngineInput = {
-    filename: options.filename,
-    code: source,
-    kind,
-    declared: options.kind,
-    toplevel: options.toplevel ?? options.kind === "module",
-  };
+  const base = engineInput(source, options);
+  const kind = base.kind;
   const candidates: Candidate[] = [];
   for (const pipeline of pipelines) {
     const name = pipeline.join(">");
     let code: string;
     try {
-      code = await runPipeline(pipeline, base);
+      code = await runEngines(pipeline, base);
     } catch (e) {
       candidates.push({
         pipeline: name,

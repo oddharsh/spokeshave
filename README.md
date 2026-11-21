@@ -27,7 +27,9 @@ A smaller output only counts if it behaves like the source. `spokeshave/oracle` 
 
 Be clear-eyed about what this catches. On the corpus, it rejects 0 of 27 oxc outputs (no false alarms), but it catches only 36 of 213 seeded bugs planted in oxc's output (17%). Most browser code runs only behind real DOM state, which stubs never produce. [docs/measurements.md](docs/measurements.md) has the breakdown, and what a browser-level check found.
 
-So treat the built-in oracle as a floor. For a site, run a page-level differential in a real browser before shipping a new pick; aadhar.sh's is `tools/check-minify-diff.ts`.
+So treat the built-in oracle as a floor, and check a new pick in a real browser before shipping it. aadhar.sh does that with `tools/check-minify-diff.ts`, which walks all 77 of its pages in Chrome for both builds. spokeshave's picks matched oxc on all 77, and the same walk caught 58% of planted bugs.
+
+For the same reason, aadhar.sh doesn't run the portfolio in its deploy build. It commits each file's pick (source hash, engine versions, pipeline) and replays it with `runPipeline`, so CI builds stay fast and every machine produces the same bytes.
 
 ## Bun plugin
 
