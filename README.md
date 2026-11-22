@@ -31,6 +31,27 @@ So treat the built-in oracle as a floor, and check a new pick in a real browser 
 
 For the same reason, aadhar.sh doesn't run the portfolio in its deploy build. It commits each file's pick (source hash, engine versions, pipeline) and replays it with `runPipeline`, so CI builds stay fast and every machine produces the same bytes.
 
+## The compression-aware renamer
+
+`spokeshave/rename` is the one part that is spokeshave's own minification rather than someone else's. Minifiers pick names by frequency, which is right for raw bytes. Brotli rewards repeats instead: `e=>e.x` spelled the same way in six closures compresses better than six different spellings of it. `renameForBrotli` searches for the naming that compresses best, then proves the result is the same program.
+
+```ts
+import { applyRenames, renameForBrotli } from "spokeshave/rename";
+
+const { code, map } = renameForBrotli(minified, {
+  module: false,
+  toplevel: false,
+});
+// later, without the search:
+const same = applyRenames(minified, map, { module: false, toplevel: false });
+```
+
+On aadhar.sh's 26 own scripts it took the committed picks from 95,536 to 95,025 B brotli (-511 B, -0.53%), in about 3 minutes. A wider search found -572 B but took 16 minutes.
+
+Every result has to pass `alphaEquivalent`. It re-analyses both texts with terser's scope analysis, names each binding by its first occurrence, and compares them. A rename that let one binding capture another's reference changes the text, so it fails. During the prototype, that check rejected 5 of 26 files when the legality rule missed `let`/`const` block scopes. When the check fails, `renameForBrotli` returns its input unchanged, so a legality bug costs bytes rather than correctness.
+
+The renamer uses terser's parser and scope code from files outside terser's package exports. A conformance test fails if a terser release moves them.
+
 ## Bun plugin
 
 ```ts
