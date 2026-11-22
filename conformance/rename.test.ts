@@ -77,3 +77,10 @@ test("names that are globals or exports stay put", () => {
   expect(result.code).toContain("keep");
   expect(result.code).toContain("window.x");
 });
+
+test("pinAfter keeps a binding's name wherever it follows the given string", () => {
+  const source = "function f(n,t,e){for(;--n;)t+=e*e*e*e;return t+e+e}";
+  const pinned = renameForBrotli(source, { ...script, pinAfter: ["--"] });
+  expect(pinned.code).toContain("--n");
+  expect(alphaEquivalent(source, pinned.code, script)).toBe(true);
+});

@@ -53,7 +53,16 @@ type Binding = {
   renameable: boolean;
 };
 
-export type RenameOptions = { module: boolean; toplevel: boolean };
+export type RenameOptions = {
+  module: boolean;
+  toplevel: boolean;
+  // A binding with an occurrence right after one of these strings keeps its
+  // name. aadhar.sh passes ["--"]: its build reads every `--name` token in
+  // the staged tree as a taken CSS custom-property name, so a decremented
+  // variable renamed from `n` to `e` (`--n` to `--e`) shifted every CSS name
+  // on the site.
+  pinAfter?: readonly string[];
+};
 
 // A rename map: [binding ordinal, new name] pairs, the ordinal being the
 // binding's position when bindings are sorted by first occurrence. It is what
@@ -118,7 +127,8 @@ function analyse(code: string, options: RenameOptions) {
     // name spelled with escapes fails this check and stays put.
     if (
       parent instanceof AST_NameMapping ||
-      code.slice(start, start + name.length) !== name
+      code.slice(start, start + name.length) !== name ||
+      options.pinAfter?.some((before) => code.endsWith(before, start))
     ) {
       binding.renameable = false;
       return;
