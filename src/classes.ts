@@ -1335,13 +1335,35 @@ export function censusClasses(
   for (const k of keyNames) for (const w of words(k)) reserve(w, "object key");
 
   // ---------- phase 4: what reads JSON ----------
-  const codeOf = (g: string) =>
-    g.endsWith(".html")
-      ? [...files.get(g)!.matchAll(SCRIPT)]
-          .filter((m) => !JSON_SCRIPT.test(m[1]!))
-          .map((m) => m[2]!)
-          .join("\n")
-      : files.get(g)!;
+  // Each file's script text and markup text, cut once. jsonReaders asks for
+  // them once per JSON file, and recutting every page for each of 230 JSON
+  // files was half of a census on aadhar.sh (1.3 of 2.6 s, 2026-11-23).
+  const codeCache = new Map<string, string>();
+  const codeOf = (g: string) => {
+    let code = codeCache.get(g);
+    if (code === undefined) {
+      code = g.endsWith(".html")
+        ? [...files.get(g)!.matchAll(SCRIPT)]
+            .filter((m) => !JSON_SCRIPT.test(m[1]!))
+            .map((m) => m[2]!)
+            .join("\n")
+        : files.get(g)!;
+      codeCache.set(g, code);
+    }
+    return code;
+  };
+  const markupCache = new Map<string, string>();
+  const markupOf = (g: string) => {
+    let markup = markupCache.get(g);
+    if (markup === undefined) {
+      markup = files
+        .get(g)!
+        .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, " ")
+        .replace(/<script([^>]*)>[\s\S]*?<\/script>/g, " $1 ");
+      markupCache.set(g, markup);
+    }
+    return markup;
+  };
   const served = (path: string) => join(options.publicDir, path.split("?")[0]!);
   const pageScripts = (g: string) => {
     const out = [g];
@@ -1538,19 +1560,17 @@ export function censusClasses(
       `(^|[/"'\`=\\s])${stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}((\\.[0-9a-f]{8})?\\.json|["'\`])`,
     );
     const out = new Set<string>(anyReaders);
+    // `includes` first: the regex can only match text that holds the stem.
     for (const g of files.keys()) {
-      if (!/\.(js|mjs|ts|html)$/.test(g)) continue;
-      if (re.test(codeOf(g))) out.add(g);
-      if (
-        g.endsWith(".html") &&
-        re.test(
-          files
-            .get(g)!
-            .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, " ")
-            .replace(/<script([^>]*)>[\s\S]*?<\/script>/g, " $1 "),
-        )
-      )
-        for (const p of pageScripts(g)) out.add(p);
+      if (!/\.(js|mjs|ts|html)$/.test(g) || !files.get(g)!.includes(stem))
+        continue;
+      const code = codeOf(g);
+      if (code.includes(stem) && re.test(code)) out.add(g);
+      if (g.endsWith(".html")) {
+        const markup = markupOf(g);
+        if (markup.includes(stem) && re.test(markup))
+          for (const p of pageScripts(g)) out.add(p);
+      }
     }
     return [...out];
   };
