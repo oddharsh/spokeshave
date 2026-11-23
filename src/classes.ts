@@ -254,7 +254,8 @@ export function censusClasses(
   for (const [f, t] of files) {
     if (f.endsWith(".ts")) parseUnit(f, t, 0, true);
     else if (/\.(js|mjs)$/.test(f)) parseUnit(f, t, 0, false);
-    else if (f.endsWith(".html")) {
+    // An SVG document is markup too: its class attributes and <style> rules.
+    else if (f.endsWith(".html") || f.endsWith(".svg")) {
       htmlFiles.push(f);
       for (const s of t.matchAll(SCRIPT)) {
         if (JSON_SCRIPT.test(s[1]!))
@@ -1170,6 +1171,7 @@ export function censusClasses(
     return { text, at, pieces, litAt };
   };
   const isChain = (n: any) =>
+    n instanceof A.AST_PrefixedTemplateString ||
     n instanceof A.AST_TemplateString ||
     n instanceof A.AST_String ||
     (n instanceof A.AST_Binary && n.operator === "+");
@@ -1216,7 +1218,8 @@ export function censusClasses(
         if (
           n instanceof A.AST_Assign &&
           n.left instanceof A.AST_Dot &&
-          n.left.property === "className"
+          // Assigning a string to classList sets the class attribute too.
+          (n.left.property === "className" || n.left.property === "classList")
         )
           resolve(n.right, 0, new Set());
         // An interpolation inside an open class="..." or a <style> selector.
@@ -1605,6 +1608,7 @@ export function censusClasses(
         for (const w of words(v)) reserve(w, `attr ${attr}`);
     }
   }
+  const scanned = new Set<any>();
   for (const u of units) {
     const isTainted = tainted.has(u.file);
     const why = u.ts ? "worker string" : "client string";
@@ -1612,6 +1616,7 @@ export function censusClasses(
       new A.TreeWalker((n: any) => {
         if (!(isChain(n) && isTop(n, u.parents))) return;
         const chain = chainOf(n);
+        for (const l of chain.litAt) scanned.add(l.node);
         // Claimed pieces were counted where they were claimed; prose rules read the rest.
         const unclaimed = chain.litAt.filter((l) => !claimed.has(l.node));
         if (!unclaimed.length) return;
@@ -1642,6 +1647,30 @@ export function censusClasses(
       }),
     );
   }
+
+  // The net under every rule above: a literal no chain reached (a node shape
+  // the walk doesn't model, as tagged templates were until 2026-11-22) reserves
+  // its words, so a blind spot costs names instead of breaking a page.
+  for (const u of units)
+    u.tree.walk(
+      new A.TreeWalker((n: any) => {
+        if (!(n instanceof A.AST_String || n instanceof A.AST_TemplateSegment))
+          return;
+        if (scanned.has(n) || claimed.has(n)) return;
+        // A property key or an import path is a string node too; neither is text a page shows.
+        const p = u.parents.get(n);
+        if (
+          p instanceof A.AST_Import ||
+          p instanceof A.AST_Export ||
+          p instanceof A.AST_ImportMeta
+        )
+          return;
+        for (const w of words(litText(n))) reserve(w, "unscanned literal");
+        misses.push(
+          `${u.file} unscanned literal ${String(litText(n)).slice(0, 40)}`,
+        );
+      }),
+    );
 
   const renameable = new Set<string>();
   const placed = new Map<string, number>();

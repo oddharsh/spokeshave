@@ -183,3 +183,22 @@ test("the integrity check fails a rename that misses a position", () => {
     ),
   ).toThrow("the rename changed more than names");
 });
+
+test("a tagged template's class attributes are class positions", () => {
+  // aadhar.sh's Worker builds markup with html`...`; until 2026-11-22 the walk
+  // skipped tagged templates, so `axp-histnav` there kept its authored name
+  // while the client looked for the short one and drew a second copy.
+  const files = new Map(
+    Object.entries({
+      "public/a.css": ".histnav{}",
+      "src/w.ts":
+        'const html = (s: TemplateStringsArray) => s.join("");\nexport const NAV = html`<span class="histnav"></span>`;',
+    }),
+  );
+  const before = censusClasses(files, { publicDir: "public" });
+  expect(before.counts.get("histnav")).toBe(2);
+  const out = applyClassNames(files, before, new Map([["histnav", "h"]]));
+  expect(out.get("src/w.ts")).toBe(
+    'const html = (s: TemplateStringsArray) => s.join("");\nexport const NAV = html`<span class="h"></span>`;',
+  );
+});
