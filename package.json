@@ -13,6 +13,7 @@
     "./bun": "./src/bun-plugin.ts",
     "./oracle": "./src/oracle.ts",
     "./rename": "./src/rename.ts",
+    "./classes": "./src/classes.ts",
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -21,6 +22,7 @@
   },
   "dependencies": {
     "@swc/wasm": "1.16.22",
+    "amaro": "1.3.0",
     "oxc-minify": "0.159.0",
     "terser": "5.51.2"
   },

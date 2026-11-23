@@ -52,6 +52,31 @@ Every result has to pass `alphaEquivalent`. It re-analyses both texts with terse
 
 The renamer uses terser's parser and scope code from files outside terser's package exports. A conformance test fails if a terser release moves them.
 
+## Cross-language class names
+
+`spokeshave/classes` shortens CSS class names across a whole site: the stylesheets, the HTML, the client scripts and the server code that builds markup, all in one pass. A rename is only safe when every place a name can appear as a class gets rewritten together, and no other text can turn into that name at runtime. So `censusClasses` records every class position with its exact offset. Then it traces each dynamic value that flows into a class (`className =`, `classList.add`, an interpolation inside `class="..."`, a selector argument) back to its literal pieces through terser's scope analysis. TypeScript has its types blanked to spaces by [amaro](https://github.com/nodejs/amaro) first, so the offsets stay the source's own.
+
+A file with a sink the census can't trace is tainted, and every word of its prose is reserved. A literal that also flows somewhere other than a class is reserved too, and so is a JSON file's text when a tainted script reads it. A name is renameable only when nothing else in the tree could become it.
+
+```ts
+import {
+  applyClassNames,
+  assertClassIntegrity,
+  censusClasses,
+} from "spokeshave/classes";
+
+const before = censusClasses(files, { publicDir: "public" });
+const renamed = applyClassNames(files, before, map); // map: renameable name -> new name
+assertClassIntegrity(
+  before,
+  censusClasses(renamed, { publicDir: "public" }),
+  map,
+  100,
+);
+```
+
+On aadhar.sh's built tree (2026-11-22), 1,151 of its 1,724 class names were renameable, across 28,381 positions. The census takes 2.3 s. One assumption carries it: data from outside the tree (an API response, user input) reaches a class only through a literal prefix or a word its reading file spells.
+
 ## Bun plugin
 
 ```ts
@@ -82,6 +107,8 @@ Bun's plugin API has no hook that rewrites an output in memory (`onEnd` gets rea
 | `src/index.ts`         | the portfolio: run every pipeline, check smallest first, fall back to oxc |
 | `src/oracle.ts`        | the effect-trace differential                                             |
 | `src/bun-plugin.ts`    | the Bun.build adapter                                                     |
+| `src/rename.ts`        | the compression-aware renamer and its alpha-equivalence check             |
+| `src/classes.ts`       | the cross-language class census, rewrite and integrity check              |
 | `conformance/`         | tests, including the pinned cases the corpus turned up                    |
 | `docs/measurements.md` | every number in this file, with its date and versions                     |
 
